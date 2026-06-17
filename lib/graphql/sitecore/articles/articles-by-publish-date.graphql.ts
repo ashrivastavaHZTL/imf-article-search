@@ -15,9 +15,10 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
         ]
       }
       orderBy: { name: "publicationDate" }
-      first: 50
+      first: 100
       after: $after
     ) {
+      total
       pageInfo {
         hasNext
         endCursor

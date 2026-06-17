@@ -45,7 +45,6 @@ export async function fetchArticles(): Promise<ArticlesResponse> {
   >(
     GQL_URL + GQL_EP,
     { query: articlesByPublishedDateQuery, variables },
-    //{ query: articlesByPublishedDateQuery },
     {
       headers: {
         "Content-Type": "application/json",
