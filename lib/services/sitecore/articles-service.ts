@@ -15,30 +15,34 @@ export interface ArticlesVariables {
   after?: string; // pagination cursor
 }
 
-export type ArticlesResponse =
-  | NonNullable<EdgeResponse<SearchResponse<ArticleResult>>>
-  | ErrorResponse;
+export type ArticlesResponse = NonNullable<
+  EdgeResponse<SearchResponse<ArticleResult>>
+>;
 
 // const GQL_URL = process.env.DOWNSTREAM_API_URL;
 const GQL_URL = process.env.EDGE_URL;
 const GQL_EP = process.env.EDGE_GRAPHQL_END_POINT;
 const GQL_API_TOKEN = process.env.EDGE_API_TOKEN;
 
-export async function fetchArticles(): Promise<ArticlesResponse> {
+export interface FetchArticlesOptions {
+  publishedAfter?: string; // override the default lookback date
+  after?: string; // pagination cursor from previous page's endCursor
+}
+
+export async function fetchArticles(
+  options: FetchArticlesOptions = {},
+): Promise<ArticlesResponse> {
   if (isEmptyString(GQL_URL) || isEmptyString(GQL_EP))
     throw new Error("EDGE URL is not configured");
   if (isEmptyString(GQL_API_TOKEN))
     throw new Error("EDGE API TOKEN is not configured");
 
   const variables: ArticlesVariables = {
-    publishedAfter: getpublishedAfterDate(),
-    //Issues Template ID
+    publishedAfter: options.publishedAfter ?? getpublishedAfterDate(),
     templateId: "13C90035-4700-4B86-B6CB-1B50F394423A",
-    // Right now I have included path as hard coded to only the /sitecore/content/IMF/IMF/Home/Publications/CR node
     path: "00030A22-A8A7-4285-A573-090B5A831B54",
+    after: options.after,
   };
-  // after is from the response in the EndCursor prop
-  //const variables: ArticlesVariables = {publishedAfter: '', templateId: "", after}
 
   const { data: body } = await axios.post<
     EdgeResponse<SearchResponse<ArticleResult>>
