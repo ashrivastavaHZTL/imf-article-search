@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchArticles } from "@/lib/services/sitecore/articles-service";
-import { persistSync } from "@/lib/services/azure/watermark-service";
+import { persistSync } from "@/lib/services/azure/article-db-service";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
 import { authenticate } from "@/lib/server-utils/api/authenticate";
 

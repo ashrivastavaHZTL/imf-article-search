@@ -1,37 +1,48 @@
--- Watermark / job state table
-CREATE TABLE sync_watermark (
-    id INT PRIMARY KEY DEFAULT 1, -- singleton row
-    last_synced_at DATETIMEOFFSET NOT NULL,
-    last_job_status VARCHAR(20), -- 'success' | 'failed' | 'running'
-    last_job_run_at DATETIMEOFFSET,
-    total_articles_processed INT DEFAULT 0
+-- Singleton watermark row — stores the cutoff date passed as $publishedAfter
+-- in the articles GraphQL query. Update last_synced_at after each successful sync.
+--   Read:   SELECT last_synced_at FROM article_sync_watermark WHERE id = 1
+--   Update: UPDATE article_sync_watermark SET last_synced_at = GETUTCDATE() WHERE id = 1
+CREATE TABLE article_sync_watermark (
+    id              INT              NOT NULL DEFAULT 1,
+    last_synced_at  DATETIMEOFFSET   NOT NULL,
+    updated_at      DATETIMEOFFSET   DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_article_sync_watermark PRIMARY KEY (id),
+    CONSTRAINT CK_article_sync_watermark_singleton CHECK (id = 1)
 );
 
--- Child table for GUIDs processed in each job run
-CREATE TABLE sync_watermark_articles (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    watermark_id INT NOT NULL DEFAULT 1,
-    article_id NVARCHAR(100) NOT NULL,
-    processed_at DATETIMEOFFSET DEFAULT GETUTCDATE(),
-    CONSTRAINT FK_sync_watermark_articles_watermark 
-        FOREIGN KEY (watermark_id) REFERENCES sync_watermark(id),
-    CONSTRAINT UQ_sync_watermark_article 
-        UNIQUE (watermark_id, article_id) -- prevent duplicate entries per run
+CREATE TABLE article (
+    article_id    NVARCHAR(100)  NOT NULL,
+    CONSTRAINT PK_article_status PRIMARY KEY (article_id)
 );
 
--- Index for fast lookup by article_id
-CREATE INDEX IX_sync_watermark_articles_article_id 
-    ON sync_watermark_articles(article_id);
-
--- Article metadata mirror (for URL resolution in Job 2)
-CREATE TABLE articles (
-    article_id NVARCHAR(100) PRIMARY KEY,
-    title NVARCHAR(500),
-    url NVARCHAR(1000),
-    publish_date DATETIMEOFFSET,
-    status VARCHAR(20), -- 'active' | 'deleted'
-    last_synced_at DATETIMEOFFSET,
-    created_at DATETIMEOFFSET DEFAULT GETUTCDATE(),
-    updated_at DATETIMEOFFSET DEFAULT GETUTCDATE(),
-    description NVARCHAR(MAX)
+CREATE TABLE article_details (
+    url           NVARCHAR(1000) NOT NULL,
+    article_id    NVARCHAR(100)  NOT NULL,
+    language_code VARCHAR(20)    NOT NULL,
+    status        VARCHAR(20),   -- 'processed' | 'pending'
+    title         NVARCHAR(500),
+    created_at    DATETIMEOFFSET DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_article_metadata
+        PRIMARY KEY (url),
+    CONSTRAINT FK_article_metadata_article
+        FOREIGN KEY (article_id)
+        REFERENCES article(article_id)
 );
+
+-- Filtered index — only indexes 'pending' rows for fast status queue lookups
+--   Query: SELECT article_id FROM article_status WHERE status = 'pending'
+CREATE INDEX IX_article_status_pending
+    ON article_details(article_id, language_code)
+    WHERE status = 'pending';
+
+-- Fast url-only lookups (url is already PK, this covers non-clustered access patterns)
+CREATE INDEX IX_article_metadata_url
+    ON article_details(url);
+
+-- Fast title-only lookups
+CREATE INDEX IX_article_metadata_title
+    ON article_details(title);
+
+-- Fast combined title + url lookups (also satisfies title-only via leading column)
+CREATE INDEX IX_article_metadata_title_url
+    ON article_details(title, url);
