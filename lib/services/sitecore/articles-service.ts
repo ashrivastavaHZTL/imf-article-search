@@ -10,7 +10,6 @@ import { isEmptyString } from "@/lib/utils/string/string";
 // Maps to the three GraphQL variables in GetRecentArticles
 export interface ArticlesVariables {
   publishedAfter: string;
-  templateId: string;
   path: string;
   after?: string; // pagination cursor
 }
@@ -23,6 +22,7 @@ export type ArticlesResponse = NonNullable<
 const GQL_URL = process.env.EDGE_URL;
 const GQL_EP = process.env.EDGE_GRAPHQL_END_POINT;
 const GQL_API_TOKEN = process.env.EDGE_API_TOKEN;
+const ARTICLE_BUCKET_ID = process.env.ARTICLE_BUCKET_ID;
 
 export interface FetchArticlesOptions {
   publishedAfter?: string; // override the default lookback date
@@ -33,13 +33,14 @@ export async function fetchArticles(
   options: FetchArticlesOptions = {},
 ): Promise<ArticlesResponse> {
   if (isEmptyString(GQL_URL) || isEmptyString(GQL_EP))
-    throw new Error("EDGE URL is not configured");
+    throw new Error("EDGE_URL is not configured");
   if (isEmptyString(GQL_API_TOKEN))
-    throw new Error("EDGE API TOKEN is not configured");
+    throw new Error("EDGE_API_TOKEN is not configured");
+  if (isEmptyString(ARTICLE_BUCKET_ID))
+    throw new Error("ARTICLE_BUCKET_ID is not configured");
 
   const variables: ArticlesVariables = {
     publishedAfter: options.publishedAfter ?? getpublishedAfterDate(),
-    templateId: "13C90035-4700-4B86-B6CB-1B50F394423A",
     path: "00030A22-A8A7-4285-A573-090B5A831B54",
     after: options.after,
   };
