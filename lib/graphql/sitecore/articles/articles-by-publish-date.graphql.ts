@@ -23,6 +23,9 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
       results {
         id
         name
+        language {
+          name
+        }
         url {
           url
         }

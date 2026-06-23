@@ -58,6 +58,7 @@ export async function fetchArticles(
     },
   );
 
+  //TODO we should handle this in a more elegant way. This was put in place by claude.
   if (body.errors?.length) {
     throw new Error(body.errors[0].message);
   }

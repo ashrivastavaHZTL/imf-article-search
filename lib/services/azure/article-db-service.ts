@@ -5,9 +5,9 @@ import { ArticleResult } from "@/lib/models/api/response/graphql/articles/articl
 // ---------------------------------------------------------------------------
 
 export interface WatermarkRow {
-  id:             number;
+  id: number;
   last_synced_at: Date;
-  updated_at:     Date;
+  updated_at: Date;
 }
 
 export interface ArticleRow {
@@ -15,18 +15,18 @@ export interface ArticleRow {
 }
 
 export interface ArticleDetailsRow {
-  url:           string;
-  article_id:    string;
+  url: string;
+  article_id: string;
   language_code: string;
-  status:        "processed" | "pending";
-  title:         string | null;
-  created_at:    Date;
+  status: "processed" | "pending";
+  title: string | null;
+  created_at: Date;
 }
 
 export interface SyncSummary {
-  total:     number;
+  total: number;
   persisted: number;
-  errors:    string[];
+  errors: string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -95,19 +95,21 @@ export async function persistSync(
   const errors: string[] = [];
 
   for (const result of results) {
+    //TODO: review logging and error handling
+    if (!result || !result.url.url) {
+      errors.push(`${result.id}: Critical details missing for result.`);
+      continue;
+    }
+
     try {
       await upsertArticle(result.id);
 
       await upsertArticleDetails({
-        // TODO: replace result.name with a fully constructed URL once the
-        //       Sitecore base URL pattern is confirmed
-        url:           result.name,
-        article_id:    result.id,
-        // language_code is not returned by the current GraphQL query — update
-        // the query to include _language if per-language rows are needed
-        language_code: "en",
-        status:        "pending",
-        title:         result.title?.value ?? null,
+        url: result.url.url ?? "",
+        article_id: result.id,
+        language_code: result.language.name,
+        status: "pending",
+        title: result.title?.value ?? null,
       });
     } catch (err: any) {
       errors.push(`${result.id}: ${err.message ?? "DB write failed"}`);
@@ -119,7 +121,7 @@ export async function persistSync(
   }
 
   return {
-    total:     results.length,
+    total: results.length,
     persisted: results.length - errors.length,
     errors,
   };
