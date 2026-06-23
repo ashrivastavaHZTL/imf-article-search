@@ -25,19 +25,39 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
       }
       results {
         id
-        template {
-          name
-        }
         name
-        ... on IssuePage {
+        url {
+          url
+        }
+        template {
+          id
+        }
+        ... on _Abstract {
+          abstract {
+            value
+          }
+        }
+        ... on _PublicationBase {
+          publicationTitle {
+            value
+          }
+          publicationShortDescription {
+            value
+          }
+        }
+        ... on _PublicationDate {
           publicationDate {
             dateValue
             formattedDateValue
           }
-          title {
+        }
+        ... on _Subtitle {
+          subtitle_348d48e267c343cf940d63c46c3ccf87 {
             value
           }
-          abstract {
+        }
+        ... on _TitleAndBody {
+          title {
             value
           }
         }
