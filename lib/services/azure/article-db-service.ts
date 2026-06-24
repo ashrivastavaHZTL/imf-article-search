@@ -82,9 +82,8 @@ export async function upsertArticleDetails(
         AS source (url, article_id, language_code, status, title)
       ON target.url = source.url
       WHEN MATCHED THEN
-        UPDATE SET language_code = source.language_code,
-                   status        = source.status,
-                   title         = source.title
+        UPDATE SET status = source.status,
+                   title  = source.title
       WHEN NOT MATCHED THEN
         INSERT (url, article_id, language_code, status, title)
         VALUES (source.url, source.article_id, source.language_code, source.status, source.title);
