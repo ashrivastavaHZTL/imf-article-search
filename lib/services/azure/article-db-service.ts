@@ -1,4 +1,6 @@
+import sql from "mssql";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
+import { getDatabaseConnection } from "@/lib/services/azure/db-config";
 
 // ---------------------------------------------------------------------------
 // Row types — mirror the DB schema in create-article-tables.sql
@@ -29,40 +31,36 @@ export interface SyncSummary {
   errors: string[];
 }
 
-// ---------------------------------------------------------------------------
-// TODO: replace stub bodies with mssql once the package is added.
-//
-// Suggested pool setup at the top of this file:
-//   import sql from "mssql";
-//   const pool = sql.connect(process.env.AZURE_SQL_CONNECTION_STRING!);
-//
-// Then each function opens a request with:
-//   const db = await pool;
-//   await db.request().input(...).query("...");
-// ---------------------------------------------------------------------------
-
 // article_sync_watermark — singleton row (id = 1)
 
 export async function getWatermark(): Promise<WatermarkRow | null> {
-  // TODO: SELECT id, last_synced_at, updated_at
-  //         FROM article_sync_watermark WHERE id = 1
-  console.log("[article-db] getWatermark — not yet implemented");
-  return null;
+  const db = await getDatabaseConnection("article_db");
+  const result = await db.request().query<WatermarkRow>(
+    "SELECT id, last_synced_at, updated_at FROM article_sync_watermark WHERE id = 1",
+  );
+  return result.recordset[0] ?? null;
 }
 
 export async function setWatermark(lastSyncedAt: Date): Promise<void> {
-  // TODO: UPDATE article_sync_watermark
-  //         SET last_synced_at = @lastSyncedAt, updated_at = GETUTCDATE()
-  //         WHERE id = 1
-  console.log("[article-db] setWatermark →", lastSyncedAt.toISOString());
+  const db = await getDatabaseConnection("article_db");
+  await db
+    .request()
+    .input("lastSyncedAt", sql.DateTimeOffset, lastSyncedAt)
+    .query(
+      "UPDATE article_sync_watermark SET last_synced_at = @lastSyncedAt, updated_at = GETUTCDATE() WHERE id = 1",
+    );
 }
 
 // article — one row per unique Sitecore article GUID
 
 export async function upsertArticle(articleId: string): Promise<void> {
-  // TODO: IF NOT EXISTS (SELECT 1 FROM article WHERE article_id = @articleId)
-  //         INSERT INTO article (article_id) VALUES (@articleId)
-  console.log("[article-db] upsertArticle →", articleId);
+  const db = await getDatabaseConnection("article_db");
+  await db
+    .request()
+    .input("articleId", sql.NVarChar, articleId)
+    .query(
+      "IF NOT EXISTS (SELECT 1 FROM article WHERE article_id = @articleId) INSERT INTO article (article_id) VALUES (@articleId)",
+    );
 }
 
 // article_details — one row per url; references article(article_id)
@@ -70,18 +68,27 @@ export async function upsertArticle(articleId: string): Promise<void> {
 export async function upsertArticleDetails(
   details: Omit<ArticleDetailsRow, "created_at">,
 ): Promise<void> {
-  // TODO: MERGE article_details AS target
-  //       USING (VALUES (@url, @article_id, @language_code, @status, @title))
-  //         AS source (url, article_id, language_code, status, title)
-  //       ON target.url = source.url
-  //       WHEN MATCHED THEN
-  //         UPDATE SET language_code = source.language_code,
-  //                    status        = source.status,
-  //                    title         = source.title
-  //       WHEN NOT MATCHED THEN
-  //         INSERT (url, article_id, language_code, status, title)
-  //         VALUES (source.url, source.article_id, source.language_code, source.status, source.title);
-  console.log("[article-db] upsertArticleDetails →", details.url);
+  const db = await getDatabaseConnection("article_db");
+  await db
+    .request()
+    .input("url",          sql.NVarChar,  details.url)
+    .input("articleId",    sql.NVarChar,  details.article_id)
+    .input("languageCode", sql.VarChar,   details.language_code)
+    .input("status",       sql.VarChar,   details.status)
+    .input("title",        sql.NVarChar,  details.title)
+    .query(`
+      MERGE article_details AS target
+      USING (VALUES (@url, @articleId, @languageCode, @status, @title))
+        AS source (url, article_id, language_code, status, title)
+      ON target.url = source.url
+      WHEN MATCHED THEN
+        UPDATE SET language_code = source.language_code,
+                   status        = source.status,
+                   title         = source.title
+      WHEN NOT MATCHED THEN
+        INSERT (url, article_id, language_code, status, title)
+        VALUES (source.url, source.article_id, source.language_code, source.status, source.title);
+    `);
 }
 
 // ---------------------------------------------------------------------------

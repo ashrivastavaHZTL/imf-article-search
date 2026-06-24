@@ -22,9 +22,9 @@ CREATE TABLE article_details (
     status        VARCHAR(20),   -- 'processed' | 'pending'
     title         NVARCHAR(500),
     created_at    DATETIMEOFFSET DEFAULT GETUTCDATE(),
-    CONSTRAINT PK_article_metadata
+    CONSTRAINT PK_article_details
         PRIMARY KEY (url),
-    CONSTRAINT FK_article_metadata_article
+    CONSTRAINT FK_article_details_article
         FOREIGN KEY (article_id)
         REFERENCES article(article_id)
 );
@@ -36,13 +36,13 @@ CREATE INDEX IX_article_status_pending
     WHERE status = 'pending';
 
 -- Fast url-only lookups (url is already PK, this covers non-clustered access patterns)
-CREATE INDEX IX_article_metadata_url
+CREATE INDEX IX_article_details_url
     ON article_details(url);
 
 -- Fast title-only lookups
-CREATE INDEX IX_article_metadata_title
+CREATE INDEX IX_article_details_title
     ON article_details(title);
 
 -- Fast combined title + url lookups (also satisfies title-only via leading column)
-CREATE INDEX IX_article_metadata_title_url
+CREATE INDEX IX_article_details_title_url
     ON article_details(title, url);
