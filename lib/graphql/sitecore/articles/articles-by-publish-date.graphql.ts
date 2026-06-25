@@ -60,6 +60,9 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
           title {
             value
           }
+          content {
+            value
+          }
         }
       }
     }

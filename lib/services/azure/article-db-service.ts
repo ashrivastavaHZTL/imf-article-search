@@ -1,6 +1,7 @@
 import sql from "mssql";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
 import { getDatabaseConnection } from "@/lib/services/azure/db-config";
+import { indexArticle } from "./article-index-service";
 
 // ---------------------------------------------------------------------------
 // Row types — mirror the DB schema in create-article-tables.sql
@@ -35,9 +36,11 @@ export interface SyncSummary {
 
 export async function getWatermark(): Promise<WatermarkRow | null> {
   const db = await getDatabaseConnection("article_db");
-  const result = await db.request().query<WatermarkRow>(
-    "SELECT id, last_synced_at, updated_at FROM article_sync_watermark WHERE id = 1",
-  );
+  const result = await db
+    .request()
+    .query<WatermarkRow>(
+      "SELECT id, last_synced_at, updated_at FROM article_sync_watermark WHERE id = 1",
+    );
   return result.recordset[0] ?? null;
 }
 
@@ -65,18 +68,30 @@ export async function upsertArticle(articleId: string): Promise<void> {
 
 // article_details — one row per url; references article(article_id)
 
-export async function upsertArticleDetails(
-  details: Omit<ArticleDetailsRow, "created_at">,
+export async function updateArticleStatus(
+  url: string,
+  status: ArticleDetailsRow["status"],
 ): Promise<void> {
   const db = await getDatabaseConnection("article_db");
   await db
     .request()
-    .input("url",          sql.NVarChar,  details.url)
-    .input("articleId",    sql.NVarChar,  details.article_id)
-    .input("languageCode", sql.VarChar,   details.language_code)
-    .input("status",       sql.VarChar,   details.status)
-    .input("title",        sql.NVarChar,  details.title)
-    .query(`
+    .input("url", sql.NVarChar, url)
+    .input("status", sql.VarChar, status)
+    .query("UPDATE article_details SET status = @status WHERE url = @url");
+}
+
+export async function upsertArticleDetails(
+  details: Omit<ArticleDetailsRow, "created_at">,
+): Promise<void> {
+  try {
+    const db = await getDatabaseConnection("article_db");
+    const result = await db
+      .request()
+      .input("url", sql.NVarChar, details.url)
+      .input("articleId", sql.NVarChar, details.article_id)
+      .input("languageCode", sql.VarChar, details.language_code)
+      .input("status", sql.VarChar, details.status)
+      .input("title", sql.NVarChar, details.title).query(`
       MERGE article_details AS target
       USING (VALUES (@url, @articleId, @languageCode, @status, @title))
         AS source (url, article_id, language_code, status, title)
@@ -88,6 +103,13 @@ export async function upsertArticleDetails(
         INSERT (url, article_id, language_code, status, title)
         VALUES (source.url, source.article_id, source.language_code, source.status, source.title);
     `);
+    if (result) {
+      console.log(result.output);
+      console.log(result.rowsAffected);
+      console.log(result.recordset);
+      console.log(result.recordsets);
+    }
+  } catch (error) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +131,6 @@ export async function persistSync(
 
     try {
       await upsertArticle(result.id);
-
       await upsertArticleDetails({
         url: result.url.url ?? "",
         article_id: result.id,
@@ -117,13 +138,19 @@ export async function persistSync(
         status: "pending",
         title: result.title?.value ?? null,
       });
+
+      const indexResult = await indexArticle(result);
+
+      if (indexResult.indexed > 0) {
+        await updateArticleStatus(result.url.url, "processed");
+      }
     } catch (err: any) {
       errors.push(`${result.id}: ${err.message ?? "DB write failed"}`);
     }
   }
 
   if (!errors.length) {
-    await setWatermark(syncedAt);
+    //await setWatermark(syncedAt);
   }
 
   return {
