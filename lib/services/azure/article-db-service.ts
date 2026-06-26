@@ -7,23 +7,20 @@ import { indexArticle } from "./article-index-service";
 // Row types — mirror the DB schema in create-article-tables.sql
 // ---------------------------------------------------------------------------
 
-export interface WatermarkRow {
-  id: number;
-  last_synced_at: Date;
-  updated_at: Date;
-}
-
 export interface ArticleRow {
   article_id: string;
 }
 
-export interface ArticleDetailsRow {
+export interface ArticleDetailsRow extends MergeAction {
   url: string;
   article_id: string;
   language_code: string;
   status: "processed" | "pending";
   title: string | null;
   created_at: Date;
+}
+export interface MergeAction {
+  merge_action?: "INSERT" | "UPDATE";
 }
 
 export interface SyncSummary {
@@ -32,6 +29,11 @@ export interface SyncSummary {
   errors: string[];
 }
 
+export interface WatermarkRow {
+  id: number;
+  last_synced_at: Date;
+  updated_at: Date;
+}
 // article_sync_watermark — singleton row (id = 1)
 
 export async function getWatermark(): Promise<boolean> {
@@ -148,24 +150,31 @@ export async function upsertArticleDetails(
       .input("languageCode", sql.VarChar, details.language_code)
       .input("status", sql.VarChar, details.status)
       .input("title", sql.NVarChar, details.title).query<ArticleDetailsRow>(`
-      MERGE article_details AS target
-      USING (VALUES (@url, @articleId, @languageCode, @status, @title))
-        AS source (url, article_id, language_code, status, title)
-      ON target.url = source.url
-      WHEN MATCHED THEN
-        UPDATE SET status = source.status,
-                   title  = source.title
-      WHEN NOT MATCHED THEN
-        INSERT (url, article_id, language_code, status, title)
-        VALUES (source.url, source.article_id, source.language_code, source.status, source.title);
-    `);
+        MERGE article_details AS target
+        USING (VALUES (@url, @articleId, @languageCode, @status, @title))
+          AS source (url, article_id, language_code, status, title)
+        ON target.url = source.url
+        WHEN MATCHED THEN
+          UPDATE SET status = source.status,
+                     title  = source.title
+        WHEN NOT MATCHED THEN
+          INSERT (url, article_id, language_code, status, title)
+          VALUES (source.url, source.article_id, source.language_code, source.status, source.title)
+        OUTPUT $action          AS merge_action,
+               INSERTED.id,
+               INSERTED.url,
+               INSERTED.article_id,
+               INSERTED.language_code,
+               INSERTED.status,
+               INSERTED.title,
+               INSERTED.created_at;
+      `);
 
-    if (result.recordset && result.recordset[0].article_id) {
-      console.log("Result output: ", result.output);
-      console.log("Result rows affected: ", result.rowsAffected);
-      console.log("Result record set: ", result.recordset);
-      console.log("Result record sets", result.recordsets);
-
+    const row = result.recordset?.[0];
+    if (row) {
+      console.log(
+        `[article-db] upsertArticleDetails — ${row.merge_action}: ${row.url}`,
+      );
       return true;
     }
   } catch (err) {
