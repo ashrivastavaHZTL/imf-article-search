@@ -1,6 +1,7 @@
 const articlesByPublishedDateQuery = /* GraphQL */ `
   query GetRecentArticles(
     $publishedAfter: String!
+    $publishedBefore: String
     $path: String!
     $after: String
   ) {
@@ -9,6 +10,7 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
         AND: [
           { name: "_path", value: $path, operator: CONTAINS }
           { name: "publicationDate", value: $publishedAfter, operator: GTE }
+          { name: "publicationDate", value: $publishedBefore, operator: LTE }
         ]
       }
       orderBy: { name: "publicationDate" }
@@ -58,6 +60,9 @@ const articlesByPublishedDateQuery = /* GraphQL */ `
         }
         ... on _TitleAndBody {
           title {
+            value
+          }
+          content {
             value
           }
         }

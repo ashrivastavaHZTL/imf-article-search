@@ -1,6 +1,6 @@
 import { searchClient } from "@/lib/search-client";
 import { embedBatch } from "@/lib/embeddings";
-import { stripHtml, detectLanguage, buildChunkText } from "@/lib/prepare";
+import { stripHtml, buildChunkText } from "@/lib/prepare";
 import type { SearchDocument } from "@/types";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
 
@@ -14,22 +14,27 @@ function toSearchDocument(
   result: ArticleResult,
 ): Omit<SearchDocument, "contentVector"> {
   const title = stripHtml(result.title?.value ?? result.name);
+  const pageTitle = stripHtml(result.title?.value ?? result.name);
   const abstract = stripHtml(result.abstract?.value ?? "");
+  const content = stripHtml(result.content?.value ?? "");
+  const subtitle = stripHtml(
+    result.subtitle_348d48e267c343cf940d63c46c3ccf87?.value ?? "",
+  );
 
   return {
-    id: result.id,
+    id: result.url.url ?? result.id + result.language.name,
     title,
-    subtitle: "",
+    subtitle,
     abstract,
-    description: "",
-    pageTitle: result.name,
-    language: detectLanguage(title),
+    description: content,
+    pageTitle,
+    language: result.language.name,
     chunkText: buildChunkText({
       title,
-      subtitle: "",
+      subtitle,
       abstract,
-      description: "",
-      pageTitle: result.name,
+      description: content,
+      pageTitle,
     }),
   };
 }
@@ -48,6 +53,38 @@ export async function indexArticles(
   }));
 
   const upload = await searchClient.mergeOrUploadDocuments(documents as any);
+
+  const errors: string[] = [];
+  let indexed = 0;
+  let failed = 0;
+
+  for (const r of upload.results) {
+    r.succeeded
+      ? indexed++
+      : (failed++,
+        errors.push(`${r.key}: ${r.errorMessage ?? "unknown error"}`));
+  }
+
+  return { indexed, failed, errors };
+}
+
+export async function indexArticle(
+  result: ArticleResult,
+): Promise<IndexResult> {
+  if (!result) return { indexed: 0, failed: 0, errors: [] };
+
+  const doc = toSearchDocument(result);
+  // TODO: need to understand what this is and why it needs a text array
+  const vectors = await embedBatch([doc.chunkText]);
+
+  const documents: SearchDocument[] = [
+    {
+      ...doc,
+      contentVector: vectors[0],
+    },
+  ];
+
+  const upload = await searchClient.mergeOrUploadDocuments(documents);
 
   const errors: string[] = [];
   let indexed = 0;

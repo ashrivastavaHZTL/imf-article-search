@@ -3,6 +3,7 @@ import { DateField, TextField } from "../fields.model";
 
 export interface ArticleResult extends SitecoreItem {
   abstract?: TextField;
+  content?: TextField;
   publicationTitle?: TextField;
   publicationShortDescription?: TextField;
   publicationDate?: DateField;
