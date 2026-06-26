@@ -4,7 +4,9 @@ import { persistSync } from "@/lib/services/azure/article-db-service";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
 import { authenticate } from "@/lib/server-utils/api/authenticate";
 
-function toISOOrNull(value: string | null): { iso: string } | { error: string } | null {
+function toISOOrNull(
+  value: string | null,
+): { iso: string } | { error: string } | null {
   if (!value) return null;
   const date = new Date(value);
   if (isNaN(date.getTime())) return { error: `"${value}" is not a valid date` };
@@ -23,9 +25,15 @@ export async function GET(req: NextRequest) {
   const untilParam = toISOOrNull(req.nextUrl.searchParams.get("until"));
 
   if (sinceParam && "error" in sinceParam)
-    return NextResponse.json({ error: `Invalid 'since': ${sinceParam.error}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Invalid 'since': ${sinceParam.error}` },
+      { status: 400 },
+    );
   if (untilParam && "error" in untilParam)
-    return NextResponse.json({ error: `Invalid 'until': ${untilParam.error}` }, { status: 400 });
+    return NextResponse.json(
+      { error: `Invalid 'until': ${untilParam.error}` },
+      { status: 400 },
+    );
 
   const since = sinceParam ? sinceParam.iso : undefined;
   const until = untilParam ? untilParam.iso : new Date().toISOString();
@@ -39,9 +47,9 @@ export async function GET(req: NextRequest) {
     // Paginate through all results until hasNext is false
     do {
       const response = await fetchArticles({
-        publishedAfter:  since,
+        publishedAfter: since,
         publishedBefore: until,
-        after:           cursor,
+        after: cursor,
       });
       if (!response?.data) {
         break;
