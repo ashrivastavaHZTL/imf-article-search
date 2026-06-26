@@ -37,6 +37,7 @@ export async function GET(req: NextRequest) {
 
   const since = sinceParam ? sinceParam.iso : undefined;
   const until = untilParam ? untilParam.iso : new Date().toISOString();
+  const path  = req.nextUrl.searchParams.get("path") ?? undefined;
 
   const syncedAt = new Date();
   const collected: ArticleResult[] = [];
@@ -47,9 +48,10 @@ export async function GET(req: NextRequest) {
     // Paginate through all results until hasNext is false
     do {
       const response = await fetchArticles({
-        publishedAfter: since,
+        publishedAfter:  since,
         publishedBefore: until,
-        after: cursor,
+        path,
+        after:           cursor,
       });
       if (!response?.data) {
         break;
