@@ -7,11 +7,12 @@ import { ArticleResult } from "@/lib/models/api/response/graphql/articles/articl
 import { getpublishedAfterDate } from "@/lib/utils/date/published-after";
 import { isEmptyString } from "@/lib/utils/string/string";
 
-// Maps to the three GraphQL variables in GetRecentArticles
+// Maps to the GraphQL variables in GetRecentArticles
 export interface ArticlesVariables {
-  publishedAfter: string;
-  path: string;
-  after?: string; // pagination cursor
+  publishedAfter:  string;
+  publishedBefore?: string; // omit for open-ended upper bound
+  path:            string;
+  after?:          string;  // pagination cursor
 }
 
 export type ArticlesResponse = NonNullable<
@@ -25,8 +26,9 @@ const GQL_API_TOKEN = process.env.EDGE_API_TOKEN;
 const ARTICLE_BUCKET_ID = process.env.ARTICLE_BUCKET_ID;
 
 export interface FetchArticlesOptions {
-  publishedAfter?: string; // override the default lookback date
-  after?: string; // pagination cursor from previous page's endCursor
+  publishedAfter?:  string; // override the default lookback date
+  publishedBefore?: string; // upper bound — omit for no upper limit
+  after?:           string; // pagination cursor from previous page's endCursor
 }
 
 export async function fetchArticles(
@@ -40,9 +42,10 @@ export async function fetchArticles(
     throw new Error("ARTICLE_BUCKET_ID is not configured");
 
   const variables: ArticlesVariables = {
-    publishedAfter: options.publishedAfter ?? getpublishedAfterDate(),
-    path: "00030A22-A8A7-4285-A573-090B5A831B54",
-    after: options.after,
+    publishedAfter:  options.publishedAfter ?? getpublishedAfterDate(),
+    publishedBefore: options.publishedBefore,
+    path:            "00030A22-A8A7-4285-A573-090B5A831B54",
+    after:           options.after,
   };
 
   const { data: body } = await axios.post<
