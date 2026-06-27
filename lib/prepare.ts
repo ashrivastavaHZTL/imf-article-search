@@ -1,13 +1,8 @@
 import { createHash } from "crypto";
 import type { Article, SearchDocument } from "@/types";
 
-/**
- * Generate a stable, content-based ID from the article title.
- * Same title always produces the same ID — different titles always
- * produce different IDs. This makes mergeOrUploadDocuments idempotent:
- * re-ingesting the same article updates it in place rather than
- * creating a duplicate or overwriting a different article.
- */
+// ─── Stable ID ────────────────────────────────────────────────────────────────
+
 function stableId(title: string): string {
   return createHash("sha256")
     .update(title.trim().toLowerCase())
@@ -15,17 +10,29 @@ function stableId(title: string): string {
     .slice(0, 16);
 }
 
+// ─── GUID validation ──────────────────────────────────────────────────────────
+
+function isValidGuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    .test(value.trim());
+}
+
+// ─── HTML stripping ───────────────────────────────────────────────────────────
+
 const ENTITIES: Record<string, string> = {
   "&laquo;": "«", "&raquo;": "»", "&nbsp;": " ", "&amp;": "&",
-  "&quot;": '"', "&#39;": "'", "&lt;": "<", "&gt;": ">",
+  "&quot;": '"',  "&#39;":  "'",  "&lt;":   "<", "&gt;":  ">",
   "&ndash;": "–", "&mdash;": "—",
 };
 
 export function stripHtml(raw: string): string {
+  if (!raw) return "";
   let t = raw.replace(/<[^>]*>/g, " ");
   for (const [ent, ch] of Object.entries(ENTITIES)) t = t.split(ent).join(ch);
   return t.replace(/\s+/g, " ").trim();
 }
+
+// ─── Language detection ───────────────────────────────────────────────────────
 
 export function detectLanguage(text: string): string {
   const n = text.length || 1;
@@ -40,11 +47,15 @@ export function detectLanguage(text: string): string {
   return "latin";
 }
 
+// ─── Near-duplicate check ─────────────────────────────────────────────────────
+
 function isNearDuplicate(a: string, b: string): boolean {
   if (!a || !b) return false;
   const norm = (s: string) => s.replace(/\s+/g, " ").trim().slice(0, 100);
   return norm(a) === norm(b);
 }
+
+// ─── Field normalisation ──────────────────────────────────────────────────────
 
 export function normaliseArticle(raw: Record<string, unknown>): Article {
   const pick = (...keys: string[]): string => {
@@ -55,61 +66,137 @@ export function normaliseArticle(raw: Record<string, unknown>): Article {
     return "";
   };
   return {
-    title:       pick("title", "Title"),
-    subtitle:    pick("subtitle", "Subtitle"),
-    abstract:    pick("abstract", "Abstract"),
+    title:       pick("title",     "Title"),
+    subtitle:    pick("subtitle",  "Subtitle"),
+    abstract:    pick("abstract",  "Abstract"),
     description: pick("description", "Description"),
     pageTitle:   pick("pageTitle", "Page Title", "page_title", "PageTitle"),
+    articleId:   pick("articleId", "ArticleId", "article_id", "articleID"),
   };
 }
 
-export function buildChunkText(a: {
-  title: string; subtitle: string; abstract: string;
-  description: string; pageTitle: string;
+// ─── Chunk text builder ───────────────────────────────────────────────────────
+// Builds the single enriched string that gets embedded.
+// Deduplicates subtitle/description when they mirror the title/abstract.
+
+export function buildChunkText(fields: {
+  title:       string;
+  subtitle:    string;
+  abstract:    string;
+  description: string;
+  pageTitle:   string;
 }): string {
-  const parts: string[] = [`Title: ${a.title}`];
-  const titleLang = detectLanguage(a.title);
-  const sub = a.subtitle;
+  const parts: string[] = [];
+
+  if (fields.title)
+    parts.push(`Title: ${fields.title}`);
+
+  const titleLang      = detectLanguage(fields.title);
   const subIsBoilerplate =
-    sub && titleLang !== "latin" && detectLanguage(sub) === "latin";
-  if (sub && !isNearDuplicate(sub, a.title) && !subIsBoilerplate) {
-    parts.push(`Subtitle: ${sub}`);
+    fields.subtitle &&
+    titleLang !== "latin" &&
+    detectLanguage(fields.subtitle) === "latin";
+
+  if (
+    fields.subtitle &&
+    !isNearDuplicate(fields.subtitle, fields.title) &&
+    !subIsBoilerplate
+  ) {
+    parts.push(`Subtitle: ${fields.subtitle}`);
   }
-  if (a.abstract) parts.push(`Abstract: ${a.abstract}`);
-  if (a.description && !isNearDuplicate(a.description, a.abstract)) {
-    parts.push(`Description: ${a.description}`);
+
+  if (fields.abstract)
+    parts.push(`Abstract: ${fields.abstract}`);
+
+  if (
+    fields.description &&
+    !isNearDuplicate(fields.description, fields.abstract)
+  ) {
+    parts.push(`Description: ${fields.description}`);
   }
-  if (a.pageTitle && !isNearDuplicate(a.pageTitle, a.title)
-      && !a.pageTitle.includes(a.title.trim().slice(0, 60))) {
-    parts.push(`Page: ${a.pageTitle}`);
+
+  if (
+    fields.pageTitle &&
+    !isNearDuplicate(fields.pageTitle, fields.title) &&
+    !fields.pageTitle.includes(fields.title.trim().slice(0, 60))
+  ) {
+    parts.push(`Page: ${fields.pageTitle}`);
   }
+
   return parts.join("\n");
 }
 
+// ─── PrepareResult ────────────────────────────────────────────────────────────
+
+export interface PrepareResult {
+  document:          Omit<SearchDocument, "contentVector">;
+  articleIdWarning?: string;
+}
+
+// ─── Main preparation function ────────────────────────────────────────────────
+
 export function prepareDocument(
   raw: Record<string, unknown>,
-  _index: number          // kept for signature compatibility; no longer used for id
-): Omit<SearchDocument, "contentVector"> {
+  _index: number
+): PrepareResult {
   const a = normaliseArticle(raw);
-  const cleaned = {
-    title:       stripHtml(a.title),
-    subtitle:    stripHtml(a.subtitle ?? ""),
-    abstract:    stripHtml(a.abstract ?? ""),
-    description: stripHtml(a.description ?? ""),
-    pageTitle:   stripHtml(a.pageTitle ?? ""),
+
+  // Clean every field explicitly — no spread that could mask undefined
+  const title       = stripHtml(a.title);
+  const subtitle    = stripHtml(a.subtitle    ?? "");
+  const abstract    = stripHtml(a.abstract    ?? "");
+  const description = stripHtml(a.description ?? "");
+  const pageTitle   = stripHtml(a.pageTitle   ?? "");
+
+  // Build chunkText from cleaned fields
+  const chunkText = buildChunkText({
+    title,
+    subtitle,
+    abstract,
+    description,
+    pageTitle,
+  });
+
+  // Hard guard — chunkText must never be empty
+  if (!chunkText) {
+    throw new Error(
+      `buildChunkText produced an empty string for title: "${title}". ` +
+      `Ensure at least 'title' or 'abstract' is non-empty.`
+    );
+  }
+
+  // articleId GUID validation
+  const rawArticleId     = (a.articleId ?? "").trim();
+  const validGuid        = rawArticleId !== "" && isValidGuid(rawArticleId);
+  const articleId        = validGuid ? rawArticleId : "";
+  const articleIdWarning = rawArticleId !== "" && !validGuid
+    ? `articleId "${rawArticleId}" is not a valid GUID ` +
+      `(expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) — stored as empty`
+    : undefined;
+
+  // Build document with explicit field assignment — no spread reordering risk
+  const document: Omit<SearchDocument, "contentVector"> = {
+    id:          stableId(title),
+    articleId,
+    title,
+    subtitle,
+    abstract,
+    description,
+    pageTitle,
+    language:    detectLanguage(title),
+    chunkText,
   };
-  return {
-    id:        stableId(cleaned.title),   // content-based, not position-based
-    ...cleaned,
-    language:  detectLanguage(cleaned.title),
-    chunkText: buildChunkText(cleaned),
-  };
+
+  return { document, articleIdWarning };
 }
+
+// ─── Validation ───────────────────────────────────────────────────────────────
 
 export function validateArticle(raw: unknown): string | undefined {
   if (typeof raw !== "object" || raw === null) return "must be an object";
   const a = normaliseArticle(raw as Record<string, unknown>);
-  if (!a.title?.trim()) return "missing 'title'";
+  if (!a.title?.trim())
+    return "missing 'title'";
   if (!a.abstract?.trim() && !a.description?.trim())
     return "needs at least one of 'abstract' or 'description'";
   return undefined;
