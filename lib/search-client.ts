@@ -33,6 +33,10 @@ export const INDEX_SCHEMA: SearchIndex = {
 
   fields: [
     { name: "id",          type: "Edm.String", key: true,  retrievable: true, filterable: true },
+    // articleId: the GUID from the source CMS (e.g. Sitecore item GUID).
+    // filterable: true — allows querying by exact GUID (e.g. find all chunks for an article).
+    // searchable: false — GUIDs are not meaningful for full-text or semantic search.
+    { name: "articleId",   type: "Edm.String", filterable: true, retrievable: true, searchable: false },
     { name: "title",       type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
     { name: "subtitle",    type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
     { name: "abstract",    type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
@@ -45,7 +49,7 @@ export const INDEX_SCHEMA: SearchIndex = {
       type: "Collection(Edm.Single)",
       searchable: true,
       retrievable: false,
-      vectorSearchDimensions: 1024,    // SDK v13 property → serialised as "dimensions"
+      vectorSearchDimensions: 1024,
       vectorSearchProfileName: "ml-profile",
     },
   ] as any[],
@@ -68,8 +72,6 @@ export const INDEX_SCHEMA: SearchIndex = {
     ],
   },
 
-  // SemanticField uses { name } not { fieldName } — confirmed from SDK type def
-  // All properties are plain interfaces — no constructors
   semanticSearch: {
     defaultConfigurationName: "ml-semantic",
     configurations: [

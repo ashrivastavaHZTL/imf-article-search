@@ -90,7 +90,7 @@ function Card({ r, rank }: { r: SearchResultItem; rank: number }) {
           </button>
         )}
         <div style={{ marginTop: 10, fontSize: 11, color: "var(--tm)", fontFamily: "monospace" }} dir="ltr">
-          score {r.score.toFixed(4)} · {r.id}
+          score {r.score.toFixed(4)} · id: {r.id}{r.articleId ? ` · articleId: ${r.articleId}` : ""}
         </div>
       </div>
     </article>
@@ -205,11 +205,16 @@ export default function Home() {
               {ingestState === "running" ? "Indexing…" : "Index articles"}
             </button>
             {ingestState === "done" && ingestRes && (
-              <span style={{ fontSize: 13, color: "#16a34a" }}>
-                ✓ {ingestRes.indexed} indexed
-                {ingestRes.skipped > 0 ? `, ${ingestRes.skipped} duplicate(s) skipped` : ""}
-                {ingestRes.failed > 0  ? `, ${ingestRes.failed} failed` : ""}
-              </span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 13, color: "#16a34a" }}>
+                  ✓ {ingestRes.indexed} indexed
+                  {ingestRes.skipped > 0 ? `, ${ingestRes.skipped} duplicate(s) skipped` : ""}
+                  {ingestRes.failed > 0 ? `, ${ingestRes.failed} failed` : ""}
+                </span>
+                {ingestRes.warnings?.map((w, i) => (
+                  <span key={i} style={{ fontSize: 12, color: "#b45309" }}>⚠ {w}</span>
+                ))}
+              </div>
             )}
             {ingestState === "error" && (
               <span style={{ fontSize: 13, color: "#dc2626" }}>{ingestErr}</span>
