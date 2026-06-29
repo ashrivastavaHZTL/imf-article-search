@@ -10,13 +10,6 @@ function stableId(title: string): string {
     .slice(0, 16);
 }
 
-// ─── GUID validation ──────────────────────────────────────────────────────────
-
-function isValidGuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    .test(value.trim());
-}
-
 // ─── HTML stripping ───────────────────────────────────────────────────────────
 
 const ENTITIES: Record<string, string> = {
@@ -165,14 +158,8 @@ export function prepareDocument(
     );
   }
 
-  // articleId GUID validation
-  const rawArticleId     = (a.articleId ?? "").trim();
-  const validGuid        = rawArticleId !== "" && isValidGuid(rawArticleId);
-  const articleId        = validGuid ? rawArticleId : "";
-  const articleIdWarning = rawArticleId !== "" && !validGuid
-    ? `articleId "${rawArticleId}" is not a valid GUID ` +
-      `(expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) — stored as empty`
-    : undefined;
+  const articleId        = (a.articleId ?? "").trim();
+  const articleIdWarning = undefined;
 
   // Build document with explicit field assignment — no spread reordering risk
   const document: Omit<SearchDocument, "contentVector"> = {
