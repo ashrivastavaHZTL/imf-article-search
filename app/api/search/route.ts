@@ -14,22 +14,30 @@ export async function POST(req: NextRequest) {
     if (!query?.trim())
       return NextResponse.json({ error: "query is required" }, { status: 400 });
 
-    const t0     = Date.now();
+    const t0 = Date.now();
     const vector = await embedOne(query);
 
     const raw = await searchClient.search(query, {
       vectorSearchOptions: {
-        queries: [{
-          kind:                   "vector",
-          vector,
-          kNearestNeighborsCount: top * 2,
-          fields:                 ["contentVector"],
-        }],
+        queries: [
+          {
+            kind: "vector",
+            vector,
+            kNearestNeighborsCount: top * 2,
+            fields: ["contentVector"],
+          },
+        ],
       },
       filter: language ? `language eq '${language}'` : undefined,
       select: [
-        "id", "title", "subtitle", "abstract",
-        "description", "pageTitle", "language",
+        "id",
+        "articleId",
+        "title",
+        "subtitle",
+        "abstract",
+        "description",
+        "pageTitle",
+        "language",
       ] as any,
       top,
     });
@@ -38,20 +46,21 @@ export async function POST(req: NextRequest) {
     for await (const r of raw.results) {
       const d = r.document as SearchDocument;
       results.push({
-        id:          d.id,
-        title:       d.title,
-        subtitle:    d.subtitle,
-        abstract:    d.abstract,
+        id: d.id,
+        articleId: d.articleId,
+        title: d.title,
+        subtitle: d.subtitle,
+        abstract: d.abstract,
         description: d.description,
-        pageTitle:   d.pageTitle,
-        language:    d.language,
-        score:       r.score ?? 0,
+        pageTitle: d.pageTitle,
+        language: d.language,
+        score: r.score ?? 0,
       });
     }
 
     return NextResponse.json({
       results,
-      count:      results.length,
+      count: results.length,
       query,
       durationMs: Date.now() - t0,
     } satisfies SearchResponse);
@@ -59,7 +68,7 @@ export async function POST(req: NextRequest) {
     console.error("[search]", err);
     return NextResponse.json(
       { error: err.message ?? "Search failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

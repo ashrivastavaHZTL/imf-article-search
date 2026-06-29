@@ -4,10 +4,12 @@ export interface Article {
   abstract?:    string;
   description?: string;
   pageTitle?:   string;
+  articleId?:   string;   // GUID from source CMS (e.g. Sitecore item ID)
 }
 
 export interface SearchDocument {
   id:             string;
+  articleId:      string;   // GUID — the source system identifier
   title:          string;
   subtitle:       string;
   abstract:       string;
@@ -23,6 +25,7 @@ export interface IngestResponse {
   skipped:  number;
   indexed:  number;
   failed:   number;
+  warnings?: string[];
   errors?:  string[];
 }
 
@@ -34,6 +37,7 @@ export interface SearchRequest {
 
 export interface SearchResultItem {
   id:          string;
+  articleId:   string;   // GUID returned in search results
   title:       string;
   subtitle:    string;
   abstract:    string;
