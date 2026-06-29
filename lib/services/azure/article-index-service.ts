@@ -29,6 +29,8 @@ function toSearchDocument(
   const title = stripHtml(result.title?.value ?? result.name);
 
   return {
+    //TODO: the stableId funciton splits on 16 charactors,
+    // we need to validate this is unique still per lanuage.
     id: stableId(articleId + language),
     articleId,
     title,
