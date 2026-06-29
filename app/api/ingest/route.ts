@@ -3,16 +3,10 @@ import { indexClient, searchClient, INDEX_SCHEMA } from "@/lib/search-client";
 import { prepareDocument, validateArticle } from "@/lib/prepare";
 import { embedBatch } from "@/lib/embeddings";
 import type { IngestResponse, SearchDocument } from "@/types";
+import { isValidGuid } from "@/lib/utils/string/id";
 
 export const maxDuration = 300;
 const UPLOAD_BATCH = 500;
-
-// ─── GUID validation ──────────────────────────────────────────────────────────
-function isValidGuid(v: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    v.trim(),
-  );
-}
 
 // ─── Extract articleId directly from raw JSON ─────────────────────────────────
 // Done here so it works regardless of which version of prepare.ts is installed.

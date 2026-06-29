@@ -1,8 +1,9 @@
 import { searchClient } from "@/lib/search-client";
 import { embedBatch } from "@/lib/embeddings";
-import { stripHtml, buildChunkText } from "@/lib/prepare";
 import type { SearchDocument } from "@/types";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
+import { stripHtml } from "@/lib/utils/string/string";
+import { buildChunkText } from "@/lib/builder/search/search-doucment-builder";
 
 export interface IndexResult {
   indexed: number;
@@ -16,13 +17,17 @@ function toSearchDocument(
   const title = stripHtml(result.title?.value ?? result.name);
   const pageTitle = stripHtml(result.title?.value ?? result.name);
   const abstract = stripHtml(result.abstract?.value ?? "");
+  const articleId = result.id;
   const content = stripHtml(result.content?.value ?? "");
   const subtitle = stripHtml(
     result.subtitle_348d48e267c343cf940d63c46c3ccf87?.value ?? "",
   );
 
   return {
-    id: result.url.url ?? result.id + result.language.name,
+    //TODO: need to confirm with Abhi that we should be sending the id.
+    // I think we should also be storing url as part of the search index object
+    id: result.url.url ?? articleId + result.language.name,
+    articleId: articleId,
     title,
     subtitle,
     abstract,
