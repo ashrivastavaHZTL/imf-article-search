@@ -49,7 +49,7 @@ export const INDEX_SCHEMA: SearchIndex = {
       type: "Collection(Edm.Single)",
       searchable: true,
       retrievable: false,
-      vectorSearchDimensions: 1024,
+      vectorSearchDimensions: 3072,
       vectorSearchProfileName: "ml-profile",
     },
   ] as any[],
