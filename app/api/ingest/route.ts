@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < documents.length; i += UPLOAD_BATCH) {
       const result = await searchClient.mergeOrUploadDocuments(
-        documents.slice(i, i + UPLOAD_BATCH) as any,
+        documents.slice(i, i + UPLOAD_BATCH),
       );
       for (const r of result.results) {
         r.succeeded
