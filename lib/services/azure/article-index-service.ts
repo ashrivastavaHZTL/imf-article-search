@@ -31,7 +31,7 @@ function toSearchDocument(
   return {
     //TODO: the stableId funciton splits on 16 charactors,
     // we need to validate this is unique still per lanuage.
-    id: stableId(articleId + locale),
+    id: stableId(articleId, locale),
     articleId,
     title,
     subtitle,

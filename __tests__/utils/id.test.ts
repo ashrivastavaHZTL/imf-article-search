@@ -18,14 +18,21 @@ describe("isValidGuid", () => {
 
 describe("stableId", () => {
   it("returns a 16-character hex string", () => {
-    const id = stableId("some title");
+    const id = stableId("some title", "en");
     expect(id).toHaveLength(16);
     expect(id).toMatch(/^[0-9a-f]+$/);
   });
   it("is deterministic for the same input", () =>
-    expect(stableId("test")).toBe(stableId("test")));
-  it("is case-insensitive (trims and lowercases)", () =>
-    expect(stableId("  Hello  ")).toBe(stableId("hello")));
-  it("produces different ids for different inputs", () =>
-    expect(stableId("article-a")).not.toBe(stableId("article-b")));
+    expect(stableId("test", "en")).toBe(stableId("test", "en")));
+  it("is case-insensitive (trims and lowercases title and locale)", () => {
+    expect(stableId("  Hello  ", "EN")).toBe(stableId("hello", "en"));
+  });
+  it("produces different ids for different titles", () =>
+    expect(stableId("article-a", "en")).not.toBe(stableId("article-b", "en")));
+  it("produces different ids for the same title with different locales", () => {
+    const title = "Global Economic Outlook 2026";
+    expect(stableId(title, "en")).not.toBe(stableId(title, "ar"));
+    expect(stableId(title, "en")).not.toBe(stableId(title, "fr"));
+    expect(stableId(title, "ar")).not.toBe(stableId(title, "ru"));
+  });
 });
