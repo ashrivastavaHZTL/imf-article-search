@@ -4,11 +4,11 @@ const client = new AzureOpenAI({
   endpoint:   process.env.AZURE_OPENAI_ENDPOINT!,
   apiKey:     process.env.AZURE_OPENAI_API_KEY!,
   apiVersion: process.env.AZURE_OPENAI_API_VERSION ?? "2024-02-01",
-  deployment: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "text-embedding-3-small",
+  deployment: process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "text-embedding-3-large",
 });
 
-const DEPLOYMENT = process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "text-embedding-3-small";
-const DIMENSIONS = 1024;
+const DEPLOYMENT = process.env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT ?? "text-embedding-3-large";
+const DIMENSIONS = 3072;
 const BATCH_SIZE = 100;
 
 export async function embedBatch(texts: string[]): Promise<number[][]> {

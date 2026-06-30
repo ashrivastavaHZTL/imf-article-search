@@ -3,18 +3,11 @@ import type { Article, SearchDocument } from "@/types";
 
 // ─── Stable ID ────────────────────────────────────────────────────────────────
 
-function stableId(title: string): string {
+function stableId(title: string, locale: string): string {
   return createHash("sha256")
-    .update(title.trim().toLowerCase())
+    .update(`${title.trim().toLowerCase()}|${locale.trim().toLowerCase()}`)
     .digest("hex")
     .slice(0, 16);
-}
-
-// ─── GUID validation ──────────────────────────────────────────────────────────
-
-function isValidGuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-    .test(value.trim());
 }
 
 // ─── HTML stripping ───────────────────────────────────────────────────────────
@@ -30,21 +23,6 @@ export function stripHtml(raw: string): string {
   let t = raw.replace(/<[^>]*>/g, " ");
   for (const [ent, ch] of Object.entries(ENTITIES)) t = t.split(ent).join(ch);
   return t.replace(/\s+/g, " ").trim();
-}
-
-// ─── Language detection ───────────────────────────────────────────────────────
-
-export function detectLanguage(text: string): string {
-  const n = text.length || 1;
-  const checks: [string, RegExp][] = [
-    ["ar", /[\u0600-\u06FF]/g],
-    ["ru", /[\u0400-\u04FF]/g],
-    ["zh", /[\u3000-\u9FFF\uF900-\uFAFF]/g],
-  ];
-  for (const [code, re] of checks) {
-    if (((text.match(re) ?? []).length) / n > 0.15) return code;
-  }
-  return "latin";
 }
 
 // ─── Near-duplicate check ─────────────────────────────────────────────────────
@@ -72,6 +50,7 @@ export function normaliseArticle(raw: Record<string, unknown>): Article {
     description: pick("description", "Description"),
     pageTitle:   pick("pageTitle", "Page Title", "page_title", "PageTitle"),
     articleId:   pick("articleId", "ArticleId", "article_id", "articleID"),
+    locale:      pick("locale",    "Locale", "language", "Language"),
   };
 }
 
@@ -91,16 +70,9 @@ export function buildChunkText(fields: {
   if (fields.title)
     parts.push(`Title: ${fields.title}`);
 
-  const titleLang      = detectLanguage(fields.title);
-  const subIsBoilerplate =
-    fields.subtitle &&
-    titleLang !== "latin" &&
-    detectLanguage(fields.subtitle) === "latin";
-
   if (
     fields.subtitle &&
-    !isNearDuplicate(fields.subtitle, fields.title) &&
-    !subIsBoilerplate
+    !isNearDuplicate(fields.subtitle, fields.title)
   ) {
     parts.push(`Subtitle: ${fields.subtitle}`);
   }
@@ -129,8 +101,7 @@ export function buildChunkText(fields: {
 // ─── PrepareResult ────────────────────────────────────────────────────────────
 
 export interface PrepareResult {
-  document:          Omit<SearchDocument, "contentVector">;
-  articleIdWarning?: string;
+  document: Omit<SearchDocument, "contentVector">;
 }
 
 // ─── Main preparation function ────────────────────────────────────────────────
@@ -165,29 +136,23 @@ export function prepareDocument(
     );
   }
 
-  // articleId GUID validation
-  const rawArticleId     = (a.articleId ?? "").trim();
-  const validGuid        = rawArticleId !== "" && isValidGuid(rawArticleId);
-  const articleId        = validGuid ? rawArticleId : "";
-  const articleIdWarning = rawArticleId !== "" && !validGuid
-    ? `articleId "${rawArticleId}" is not a valid GUID ` +
-      `(expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) — stored as empty`
-    : undefined;
+  const articleId = (a.articleId ?? "").trim();
+  const locale    = (a.locale    ?? "").trim();
 
   // Build document with explicit field assignment — no spread reordering risk
   const document: Omit<SearchDocument, "contentVector"> = {
-    id:          stableId(title),
+    id: stableId(title, locale),
     articleId,
     title,
     subtitle,
     abstract,
     description,
     pageTitle,
-    language:    detectLanguage(title),
+    locale,
     chunkText,
   };
 
-  return { document, articleIdWarning };
+  return { document };
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────

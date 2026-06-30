@@ -10,7 +10,7 @@ import type {
 
 export async function POST(req: NextRequest) {
   try {
-    const { query, top = 10, language }: SearchRequest = await req.json();
+    const { query, top = 10, locale }: SearchRequest = await req.json();
     if (!query?.trim())
       return NextResponse.json({ error: "query is required" }, { status: 400 });
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
           },
         ],
       },
-      filter: language ? `language eq '${language}'` : undefined,
+      filter: locale ? `locale eq '${locale}'` : undefined,
       select: [
         "id",
         "articleId",
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         "abstract",
         "description",
         "pageTitle",
-        "language",
+        "locale",
       ] as any,
       top,
     });
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         abstract: d.abstract,
         description: d.description,
         pageTitle: d.pageTitle,
-        language: d.language,
+        locale: d.locale,
         score: r.score ?? 0,
       });
     }
