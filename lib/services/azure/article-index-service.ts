@@ -22,13 +22,14 @@ function toSearchDocument(
   );
 
   return {
-    id: result.url.url ?? result.id + result.language.name,
+    id:        result.url.url ?? result.id + result.language.name,
+    articleId: result.id,
     title,
     subtitle,
     abstract,
     description: content,
     pageTitle,
-    language: result.language.name,
+    locale: result.language.name,
     chunkText: buildChunkText({
       title,
       subtitle,

@@ -4,18 +4,19 @@ export interface Article {
   abstract?:    string;
   description?: string;
   pageTitle?:   string;
-  articleId?:   string;   // GUID from source CMS (e.g. Sitecore item ID)
+  articleId?:   string;
+  locale?:      string;   // BCP 47 language code from Sitecore (e.g. "en", "fr", "ar")
 }
 
 export interface SearchDocument {
   id:             string;
-  articleId:      string;   // GUID — the source system identifier
+  articleId:      string;
   title:          string;
   subtitle:       string;
   abstract:       string;
   description:    string;
   pageTitle:      string;
-  language:       string;
+  locale:         string;   // BCP 47 language code from Sitecore
   chunkText:      string;
   contentVector?: number[];
 }
@@ -30,20 +31,20 @@ export interface IngestResponse {
 }
 
 export interface SearchRequest {
-  query:     string;
-  top?:      number;
-  language?: string;
+  query:   string;
+  top?:    number;
+  locale?: string;
 }
 
 export interface SearchResultItem {
   id:          string;
-  articleId:   string;   // GUID returned in search results
+  articleId:   string;
   title:       string;
   subtitle:    string;
   abstract:    string;
   description: string;
   pageTitle:   string;
-  language:    string;
+  locale:      string;
   score:       number;
 }
 
