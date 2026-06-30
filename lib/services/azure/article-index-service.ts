@@ -21,7 +21,7 @@ function toSearchDocument(
   const abstract = stripHtml(result.abstract?.value ?? "");
   const articleId = result.id;
   const content = stripHtml(result.content?.value ?? "");
-  const language = result.language.name;
+  const locale = result.language.name;
   const pageTitle = stripHtml(result.title?.value ?? result.name);
   const subtitle = stripHtml(
     result.subtitle_348d48e267c343cf940d63c46c3ccf87?.value ?? "",
@@ -31,14 +31,14 @@ function toSearchDocument(
   return {
     //TODO: the stableId funciton splits on 16 charactors,
     // we need to validate this is unique still per lanuage.
-    id: stableId(articleId + language),
+    id: stableId(articleId + locale),
     articleId,
     title,
     subtitle,
     abstract,
     description: content,
     pageTitle,
-    language,
+    locale,
     chunkText: buildChunkText({
       title,
       subtitle,

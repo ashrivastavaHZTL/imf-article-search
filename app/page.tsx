@@ -80,11 +80,11 @@ function Skeleton() {
 
 function Card({ r, rank }: { r: SearchResultItem; rank: number }) {
   const [open, setOpen] = useState(false);
-  const isRtl = r.language === "ar";
+  const isRtl = r.locale === "ar";
   const hasSub =
     r.subtitle &&
     r.subtitle.toLowerCase() !== r.title.toLowerCase() &&
-    !(r.language !== "latin" && /^[\x00-\x7F\s\-:,.]+$/.test(r.subtitle));
+    !(r.locale !== "latin" && /^[\x00-\x7F\s\-:,.]+$/.test(r.subtitle));
   const body = r.abstract || r.description;
 
   return (
@@ -153,7 +153,7 @@ function Card({ r, rank }: { r: SearchResultItem; rank: number }) {
               whiteSpace: "nowrap",
             }}
           >
-            {LANG_LABEL[r.language] ?? r.language}
+            {LANG_LABEL[r.locale] ?? r.locale}
           </span>
         </div>
         {hasSub && (

@@ -1,8 +1,7 @@
 import type { Article, SearchDocument } from "@/types";
-import { isValidGuid, stableId } from "./utils/string/id";
+import { stableId } from "./utils/string/id";
 import { stripHtml } from "./utils/string/string";
 import { buildChunkText } from "./builder/search/search-doucment-builder";
-import { detectLanguage } from "./utils/language/detect";
 
 // ─── Field normalisation ──────────────────────────────────────────────────────
 
@@ -21,6 +20,7 @@ export function normaliseArticle(raw: Record<string, unknown>): Article {
     description: pick("description", "Description"),
     pageTitle: pick("pageTitle", "Page Title", "page_title", "PageTitle"),
     articleId: pick("articleId", "ArticleId", "article_id", "articleID"),
+    locale: pick("locale", "Locale", "language", "Language"),
   };
 }
 
@@ -63,15 +63,8 @@ export function prepareDocument(
     );
   }
 
-  // articleId GUID validation
-  const rawArticleId = (a.articleId ?? "").trim();
-  const validGuid = rawArticleId !== "" && isValidGuid(rawArticleId);
-  const articleId = validGuid ? rawArticleId : "";
-  const articleIdWarning =
-    rawArticleId !== "" && !validGuid
-      ? `articleId "${rawArticleId}" is not a valid GUID ` +
-        `(expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) — stored as empty`
-      : undefined;
+  const articleId = (a.articleId ?? "").trim();
+  const locale = (a.locale ?? "").trim();
 
   // Build document with explicit field assignment — no spread reordering risk
   const document: Omit<SearchDocument, "contentVector"> = {
@@ -82,11 +75,11 @@ export function prepareDocument(
     abstract,
     description,
     pageTitle,
-    language: detectLanguage(title),
+    locale,
     chunkText,
   };
 
-  return { document, articleIdWarning };
+  return { document };
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────

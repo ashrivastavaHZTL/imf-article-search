@@ -8,35 +8,6 @@ import { isValidGuid } from "@/lib/utils/string/id";
 export const maxDuration = 300;
 const UPLOAD_BATCH = 500;
 
-// ─── Extract articleId directly from raw JSON ─────────────────────────────────
-// Done here so it works regardless of which version of prepare.ts is installed.
-function extractArticleId(raw: Record<string, unknown>): {
-  articleId: string;
-  articleIdWarning: string | undefined;
-} {
-  const candidates = ["articleId", "ArticleId", "article_id", "articleID"];
-  let rawValue = "";
-  for (const key of candidates) {
-    if (typeof raw[key] === "string" && (raw[key] as string).trim()) {
-      rawValue = (raw[key] as string).trim();
-      break;
-    }
-  }
-
-  if (!rawValue) return { articleId: "", articleIdWarning: undefined };
-
-  if (isValidGuid(rawValue)) {
-    return { articleId: rawValue, articleIdWarning: undefined };
-  }
-
-  return {
-    articleId: "",
-    articleIdWarning:
-      `articleId "${rawValue}" is not a valid GUID ` +
-      `(expected: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) — stored as empty`,
-  };
-}
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -56,27 +27,15 @@ export async function POST(req: NextRequest) {
     await indexClient.createOrUpdateIndex(INDEX_SCHEMA);
     console.log("[ingest] Index ready.");
 
-    // 3. Prepare documents + extract articleId
+    // 3. Prepare documents
     const warnings: string[] = [];
     const allDocs: Omit<SearchDocument, "contentVector">[] = [];
 
     raw.forEach((r, i) => {
-      const rawRecord = r as Record<string, unknown>;
-      const result = prepareDocument(rawRecord, i);
-
-      // Handle both PrepareResult { document } and plain document shapes
-      let doc: Omit<SearchDocument, "contentVector">;
-      if (result && typeof result === "object" && "document" in result) {
-        const pr = result as {
-          document: Omit<SearchDocument, "contentVector">;
-          articleIdWarning?: string;
-        };
-        doc = pr.document;
-        if (pr.articleIdWarning)
-          warnings.push(`Item ${i + 1}: ${pr.articleIdWarning}`);
-      } else {
-        doc = result as unknown as Omit<SearchDocument, "contentVector">;
-      }
+      const { document: doc } = prepareDocument(
+        r as Record<string, unknown>,
+        i,
+      );
 
       if (!doc?.chunkText) {
         throw new Error(
@@ -84,13 +43,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Extract articleId directly from raw JSON — ensures it is always set
-      // regardless of which version of prepare.ts is installed locally.
-      const { articleId, articleIdWarning } = extractArticleId(rawRecord);
-      if (articleIdWarning) warnings.push(`Item ${i + 1}: ${articleIdWarning}`);
-
-      // Overwrite whatever prepare.ts put (may be "" from old version)
-      allDocs.push({ ...doc, articleId });
+      allDocs.push(doc);
     });
 
     if (warnings.length) console.warn("[ingest] warnings:", warnings);
