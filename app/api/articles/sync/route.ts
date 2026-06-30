@@ -3,6 +3,8 @@ import { fetchArticles } from "@/lib/services/sitecore/articles-service";
 import { persistSync } from "@/lib/services/azure/article-db-service";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
 import { authenticate } from "@/lib/server-utils/api/authenticate";
+import { INDEX_SCHEMA, indexClient } from "@/lib/search-client";
+import { getpublishedAfterDate } from "@/lib/utils/date/published-after";
 
 function toISOOrNull(
   value: string | null,
@@ -35,9 +37,9 @@ export async function GET(req: NextRequest) {
       { status: 400 },
     );
 
-  const since = sinceParam ? sinceParam.iso : undefined;
+  const since = sinceParam ? sinceParam.iso : getpublishedAfterDate();
   const until = untilParam ? untilParam.iso : new Date().toISOString();
-  const path  = req.nextUrl.searchParams.get("path") ?? undefined;
+  const path = req.nextUrl.searchParams.get("path") ?? undefined;
 
   const syncedAt = new Date();
   const collected: ArticleResult[] = [];
@@ -48,10 +50,10 @@ export async function GET(req: NextRequest) {
     // Paginate through all results until hasNext is false
     do {
       const response = await fetchArticles({
-        publishedAfter:  since,
+        publishedAfter: since,
         publishedBefore: until,
         path,
-        after:           cursor,
+        after: cursor,
       });
       if (!response?.data) {
         break;
@@ -72,15 +74,31 @@ export async function GET(req: NextRequest) {
       cursor = pageInfo.hasNext ? pageInfo.endCursor : undefined;
     } while (cursor);
 
-    const summary = await persistSync(collected, syncedAt);
+    // 2. Ensure index exists
+    console.log("[indexArticles] Creating/updating index...");
+    const index = await indexClient.createOrUpdateIndex(INDEX_SCHEMA);
+    console.log("[indexArticles] Index ready.");
+
+    if (!index?.name) {
+      console.error(
+        "[articles/sync]",
+        "Search index failed to create or update.",
+      );
+      return NextResponse.json(
+        { error: "Search Index missing, Sync failed" },
+        { status: 500 },
+      );
+    }
+
+    //const summary = await persistSync(collected, syncedAt);
 
     // TODO: Define response type
     return NextResponse.json({
-      since: since ?? "default-lookback",
+      since: since,
       until,
       pages: collected,
       count: collected.length,
-      ...summary,
+      //...summary,
     });
   } catch (err: any) {
     console.error("[articles/sync]", err);
