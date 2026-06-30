@@ -14,7 +14,7 @@ export interface ArticleRow {
 export interface ArticleDetailsRow {
   url: string;
   article_id: string;
-  language_code: string;
+  locale: string;
   status: "processed" | "pending";
   title: string | null;
   created_at: Date;
@@ -151,25 +151,25 @@ export async function upsertArticleDetails(
       .request()
       .input("url", sql.NVarChar, details.url)
       .input("articleId", sql.NVarChar, details.article_id)
-      .input("languageCode", sql.VarChar, details.language_code)
+      .input("locale", sql.VarChar, details.locale)
       .input("status", sql.VarChar, details.status)
       .input("title", sql.NVarChar, details.title)
       .query<ArticleDetailsRowResult>(`
         MERGE article_details AS target
-        USING (VALUES (@url, @articleId, @languageCode, @status, @title))
-          AS source (url, article_id, language_code, status, title)
+        USING (VALUES (@url, @articleId, @locale, @status, @title))
+          AS source (url, article_id, locale, status, title)
         ON target.url = source.url
         WHEN MATCHED THEN
           UPDATE SET status = source.status,
                      title  = source.title
         WHEN NOT MATCHED THEN
-          INSERT (url, article_id, language_code, status, title)
-          VALUES (source.url, source.article_id, source.language_code, source.status, source.title)
+          INSERT (url, article_id, locale, status, title)
+          VALUES (source.url, source.article_id, source.locale, source.status, source.title)
         OUTPUT $action          AS merge_action,
                INSERTED.id,
                INSERTED.url,
                INSERTED.article_id,
-               INSERTED.language_code,
+               INSERTED.locale,
                INSERTED.status,
                INSERTED.title,
                INSERTED.created_at;
@@ -211,7 +211,7 @@ export async function persistSync(
       const recordId = await upsertArticleDetails({
         url: result.url.url ?? "",
         article_id: result.id,
-        language_code: result.language.name,
+        locale: result.language.name,
         status: "pending",
         title: result.title?.value ?? null,
       });

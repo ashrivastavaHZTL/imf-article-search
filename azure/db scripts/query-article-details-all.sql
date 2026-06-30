@@ -7,7 +7,7 @@ SELECT
     ad.id,
     ad.url,
     ad.article_id,
-    ad.language_code,
+    ad.locale,
     ad.status,
     ad.title,
     ad.created_at
