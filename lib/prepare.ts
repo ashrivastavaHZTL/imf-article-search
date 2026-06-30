@@ -68,7 +68,7 @@ export function prepareDocument(
 
   // Build document with explicit field assignment — no spread reordering risk
   const document: Omit<SearchDocument, "contentVector"> = {
-    id: stableId(title, locale),
+    id: stableId(articleId, locale),
     articleId,
     title,
     subtitle,

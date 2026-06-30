@@ -11,9 +11,9 @@ export function isValidGuid(v: string): boolean {
 
 // ─── Stable ID ────────────────────────────────────────────────────────────────
 
-export function stableId(title: string, locale: string): string {
+export function stableId(id: string, locale: string): string {
   return createHash("sha256")
-    .update(`${title.trim().toLowerCase()}|${locale.trim().toLowerCase()}`)
+    .update(`${id.trim().toLowerCase()}|${locale.trim().toLowerCase()}`)
     .digest("hex")
     .slice(0, 16);
 }

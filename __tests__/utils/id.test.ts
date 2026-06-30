@@ -17,22 +17,23 @@ describe("isValidGuid", () => {
 });
 
 describe("stableId", () => {
+  const GUID_A = "a647d733-0e5f-4374-8071-db4b258e3af5";
+  const GUID_B = "b92c1e44-1f6a-4885-9182-ec5c369f4b06";
+
   it("returns a 16-character hex string", () => {
-    const id = stableId("some title", "en");
+    const id = stableId(GUID_A, "en");
     expect(id).toHaveLength(16);
     expect(id).toMatch(/^[0-9a-f]+$/);
   });
-  it("is deterministic for the same input", () =>
-    expect(stableId("test", "en")).toBe(stableId("test", "en")));
-  it("is case-insensitive (trims and lowercases title and locale)", () => {
-    expect(stableId("  Hello  ", "EN")).toBe(stableId("hello", "en"));
-  });
-  it("produces different ids for different titles", () =>
-    expect(stableId("article-a", "en")).not.toBe(stableId("article-b", "en")));
-  it("produces different ids for the same title with different locales", () => {
-    const title = "Global Economic Outlook 2026";
-    expect(stableId(title, "en")).not.toBe(stableId(title, "ar"));
-    expect(stableId(title, "en")).not.toBe(stableId(title, "fr"));
-    expect(stableId(title, "ar")).not.toBe(stableId(title, "ru"));
+  it("is deterministic for the same guid and locale", () =>
+    expect(stableId(GUID_A, "en")).toBe(stableId(GUID_A, "en")));
+  it("is case-insensitive (trims and lowercases guid and locale)", () =>
+    expect(stableId("  " + GUID_A.toUpperCase() + "  ", "EN")).toBe(stableId(GUID_A, "en")));
+  it("produces different ids for different guids with the same locale", () =>
+    expect(stableId(GUID_A, "en")).not.toBe(stableId(GUID_B, "en")));
+  it("produces different ids for the same guid with different locales", () => {
+    expect(stableId(GUID_A, "en")).not.toBe(stableId(GUID_A, "ar"));
+    expect(stableId(GUID_A, "en")).not.toBe(stableId(GUID_A, "fr"));
+    expect(stableId(GUID_A, "ar")).not.toBe(stableId(GUID_A, "ru"));
   });
 });
