@@ -18,32 +18,88 @@ import {
 } from "@azure/search-documents";
 import type { SearchDocument } from "@/types";
 
-const endpoint  = process.env.AZURE_SEARCH_ENDPOINT!;
-const apiKey    = process.env.AZURE_SEARCH_API_KEY!;
-export const INDEX_NAME = process.env.AZURE_SEARCH_INDEX_NAME ?? "imf-articles-ml";
+const endpoint = process.env.AZURE_SEARCH_ENDPOINT!;
+const apiKey = process.env.AZURE_SEARCH_API_KEY!;
+export const INDEX_NAME =
+  process.env.AZURE_SEARCH_INDEX_NAME ?? "imf-articles-ml";
 const credential = new AzureKeyCredential(apiKey);
 
-export const indexClient  = new SearchIndexClient(endpoint, credential);
+export const indexClient = new SearchIndexClient(endpoint, credential);
 export const searchClient = new SearchClient<SearchDocument>(
-  endpoint, INDEX_NAME, credential
+  endpoint,
+  INDEX_NAME,
+  credential,
 );
 
 export const INDEX_SCHEMA: SearchIndex = {
   name: INDEX_NAME,
 
   fields: [
-    { name: "id",          type: "Edm.String", key: true,  retrievable: true, filterable: true },
+    {
+      name: "id",
+      type: "Edm.String",
+      key: true,
+      retrievable: true,
+      filterable: true,
+    },
     // articleId: the GUID from the source CMS (e.g. Sitecore item GUID).
     // filterable: true — allows querying by exact GUID (e.g. find all chunks for an article).
     // searchable: false — GUIDs are not meaningful for full-text or semantic search.
-    { name: "articleId",   type: "Edm.String", filterable: true, retrievable: true, searchable: false },
-    { name: "title",       type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
-    { name: "subtitle",    type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
-    { name: "abstract",    type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
-    { name: "description", type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
-    { name: "pageTitle",   type: "Edm.String", searchable: true, retrievable: true, analyzerName: "standard.lucene" },
-    { name: "locale",      type: "Edm.String", filterable: true, facetable: true, retrievable: true },
-    { name: "chunkText",   type: "Edm.String", searchable: false, retrievable: false },
+    {
+      name: "articleId",
+      type: "Edm.String",
+      filterable: true,
+      retrievable: true,
+      searchable: false,
+    },
+    {
+      name: "title",
+      type: "Edm.String",
+      searchable: true,
+      retrievable: true,
+      analyzerName: "standard.lucene",
+    },
+    {
+      name: "subtitle",
+      type: "Edm.String",
+      searchable: true,
+      retrievable: true,
+      analyzerName: "standard.lucene",
+    },
+    {
+      name: "abstract",
+      type: "Edm.String",
+      searchable: true,
+      retrievable: true,
+      analyzerName: "standard.lucene",
+    },
+    {
+      name: "description",
+      type: "Edm.String",
+      searchable: true,
+      retrievable: true,
+      analyzerName: "standard.lucene",
+    },
+    {
+      name: "pageTitle",
+      type: "Edm.String",
+      searchable: true,
+      retrievable: true,
+      analyzerName: "standard.lucene",
+    },
+    {
+      name: "locale",
+      type: "Edm.String",
+      filterable: true,
+      facetable: true,
+      retrievable: true,
+    },
+    {
+      name: "chunkText",
+      type: "Edm.String",
+      searchable: false,
+      retrievable: false,
+    },
     {
       name: "contentVector",
       type: "Collection(Edm.Single)",
@@ -67,9 +123,7 @@ export const INDEX_SCHEMA: SearchIndex = {
         },
       },
     ],
-    profiles: [
-      { name: "ml-profile", algorithmConfigurationName: "ml-hnsw" },
-    ],
+    profiles: [{ name: "ml-profile", algorithmConfigurationName: "ml-hnsw" }],
   },
 
   semanticSearch: {
@@ -78,9 +132,9 @@ export const INDEX_SCHEMA: SearchIndex = {
       {
         name: "ml-semantic",
         prioritizedFields: {
-          titleField:    { name: "title" },
+          titleField: { name: "title" },
           contentFields: [{ name: "abstract" }, { name: "description" }],
-          keywordsFields:[{ name: "subtitle" }, { name: "pageTitle" }],
+          keywordsFields: [{ name: "subtitle" }, { name: "pageTitle" }],
         },
       },
     ],

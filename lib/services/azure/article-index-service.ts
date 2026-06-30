@@ -1,8 +1,11 @@
 import { searchClient } from "@/lib/search-client";
 import { embedBatch } from "@/lib/embeddings";
-import { stripHtml, buildChunkText } from "@/lib/prepare";
 import type { SearchDocument } from "@/types";
 import { ArticleResult } from "@/lib/models/api/response/graphql/articles/article.model";
+import { stripHtml } from "@/lib/utils/string/string";
+import { buildChunkText } from "@/lib/builder/search/search-doucment-builder";
+// import { prepareDocument } from "@/lib/prepare";
+import { stableId } from "@/lib/utils/string/id";
 
 export interface IndexResult {
   indexed: number;
@@ -13,23 +16,29 @@ export interface IndexResult {
 function toSearchDocument(
   result: ArticleResult,
 ): Omit<SearchDocument, "contentVector"> {
-  const title = stripHtml(result.title?.value ?? result.name);
-  const pageTitle = stripHtml(result.title?.value ?? result.name);
+  // TODO: fix the type maping into prepare document
+  //prepareDocument(result);
   const abstract = stripHtml(result.abstract?.value ?? "");
+  const articleId = result.id;
   const content = stripHtml(result.content?.value ?? "");
+  const locale = result.language.name;
+  const pageTitle = stripHtml(result.title?.value ?? result.name);
   const subtitle = stripHtml(
     result.subtitle_348d48e267c343cf940d63c46c3ccf87?.value ?? "",
   );
+  const title = stripHtml(result.title?.value ?? result.name);
 
   return {
-    id:        result.url.url ?? result.id + result.language.name,
-    articleId: result.id,
+    //TODO: the stableId funciton splits on 16 charactors,
+    // we need to validate this is unique still per lanuage.
+    id: stableId(articleId, locale),
+    articleId,
     title,
     subtitle,
     abstract,
     description: content,
     pageTitle,
-    locale: result.language.name,
+    locale,
     chunkText: buildChunkText({
       title,
       subtitle,
@@ -53,7 +62,7 @@ export async function indexArticles(
     contentVector: vectors[i],
   }));
 
-  const upload = await searchClient.mergeOrUploadDocuments(documents as any);
+  const upload = await searchClient.mergeOrUploadDocuments(documents);
 
   const errors: string[] = [];
   let indexed = 0;
@@ -71,32 +80,42 @@ export async function indexArticles(
 
 export async function indexArticle(
   result: ArticleResult,
-): Promise<IndexResult> {
+): Promise<IndexResult | null> {
   if (!result) return { indexed: 0, failed: 0, errors: [] };
 
   const doc = toSearchDocument(result);
-  // TODO: need to understand what this is and why it needs a text array
-  const vectors = await embedBatch([doc.chunkText]);
 
-  const documents: SearchDocument[] = [
-    {
-      ...doc,
-      contentVector: vectors[0],
-    },
-  ];
+  try {
+    const vectors = await embedBatch([doc.chunkText]);
+    const documents: SearchDocument[] = [
+      {
+        ...doc,
+        contentVector: vectors[0],
+      },
+    ];
+    const upload = await searchClient.mergeOrUploadDocuments(
+      documents.map((d) => ({
+        ...d,
+      })) as SearchDocument[],
+    );
+    const errors: string[] = [];
+    let indexed = 0;
+    let failed = 0;
 
-  const upload = await searchClient.mergeOrUploadDocuments(documents);
+    for (const r of upload.results) {
+      r.succeeded
+        ? indexed++
+        : (failed++,
+          errors.push(`${r.key}: ${r.errorMessage ?? "unknown error"}`));
+    }
 
-  const errors: string[] = [];
-  let indexed = 0;
-  let failed = 0;
-
-  for (const r of upload.results) {
-    r.succeeded
-      ? indexed++
-      : (failed++,
-        errors.push(`${r.key}: ${r.errorMessage ?? "unknown error"}`));
+    return { indexed, failed, errors };
+  } catch (err) {
+    console.error(
+      `indexArticle: Index record insertion failed for article ID: ${result.id}, Language: ${result.language.name}.`,
+      err,
+    );
   }
 
-  return { indexed, failed, errors };
+  return null;
 }

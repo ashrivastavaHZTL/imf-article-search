@@ -3,10 +3,10 @@ import { indexClient, searchClient, INDEX_SCHEMA } from "@/lib/search-client";
 import { prepareDocument, validateArticle } from "@/lib/prepare";
 import { embedBatch } from "@/lib/embeddings";
 import type { IngestResponse, SearchDocument } from "@/types";
+import { isValidGuid } from "@/lib/utils/string/id";
 
 export const maxDuration = 300;
 const UPLOAD_BATCH = 500;
-
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     const allDocs: Omit<SearchDocument, "contentVector">[] = [];
 
     raw.forEach((r, i) => {
-      const { document: doc } = prepareDocument(r as Record<string, unknown>, i);
+      const { document: doc } = prepareDocument(
+        r as Record<string, unknown>,
+        i,
+      );
 
       if (!doc?.chunkText) {
         throw new Error(
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < documents.length; i += UPLOAD_BATCH) {
       const result = await searchClient.mergeOrUploadDocuments(
-        documents.slice(i, i + UPLOAD_BATCH) as any,
+        documents.slice(i, i + UPLOAD_BATCH),
       );
       for (const r of result.results) {
         r.succeeded

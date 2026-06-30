@@ -19,7 +19,7 @@ CREATE TABLE article_details (
     id            INT            IDENTITY(1,1) NOT NULL,
     url           NVARCHAR(1000) NOT NULL,
     article_id    NVARCHAR(100)  NOT NULL,
-    language_code VARCHAR(20)    NOT NULL,
+    locale VARCHAR(20)    NOT NULL,
     status        VARCHAR(20),   -- 'processed' | 'pending'
     title         NVARCHAR(500),
     created_at    DATETIMEOFFSET DEFAULT GETUTCDATE(),
@@ -35,7 +35,7 @@ CREATE TABLE article_details (
 -- Filtered index — only indexes 'pending' rows for fast status queue lookups
 --   Query: SELECT id, article_id FROM article_details WHERE status = 'pending'
 CREATE INDEX IX_article_details_pending
-    ON article_details(id, article_id, language_code)
+    ON article_details(id, article_id, locale)
     WHERE status = 'pending';
 
 -- Fast url lookups (url is now a unique constraint, this covers non-clustered access patterns)
